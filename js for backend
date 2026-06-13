@@ -1,0 +1,482 @@
+const express = require("express");
+const sql = require("mssql");
+const cors = require("cors");
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
+
+const config = {
+    user: "sa",
+    password: "1234",
+    server: "localhost",
+    port: 1433,
+    database: "food_order_db",
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
+};
+
+let pool;
+
+async function connectDb() {
+    try {
+        pool = await sql.connect(config);
+        console.log("✅ Connected to SQL Server");
+    } catch (err) {
+        console.error("❌ DB Connection Error:");
+        console.error(err);
+    }
+}
+
+app.get("/menu", async (req, res) => {
+    try {
+        const result = await pool.request().query(`
+            SELECT food_items.food_id, food_items.food_name, food_items.price,
+                   food_items.description, food_items.image_url, food_items.rating,
+                   food_items.availability_status, food_categories.category_name
+            FROM food_items
+            JOIN food_categories ON food_categories.category_id = food_items.category_id
+            ORDER BY food_categories.category_name, food_items.food_name
+        `);
+
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error loading menu" });
+    }
+});
+
+app.get("/deals", async (req, res) => {
+    try {
+        const result = await pool.request().execute("GetDeals");
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error loading deals" });
+    }
+});
+
+app.get("/discounts", async (req, res) => {
+    try {
+        const result = await pool.request().execute("GetDiscounts");
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error loading discounts" });
+    }
+});
+
+app.get("/dashboard", async (req, res) => {
+    try {
+        const result = await pool.request().execute("GetDashboardStats");
+        res.json(result.recordset[0]);
+    } catch (err) {
+        res.status(500).json({ message: "Error loading dashboard" });
+    }
+});
+
+app.get("/top-foods", async (req, res) => {
+    try {
+        const result = await pool.request().execute("GetTopSellingFood");
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error loading top foods" });
+    }
+});
+
+app.get("/payment-summary", async (req, res) => {
+    try {
+        const result = await pool.request().execute("GetPaymentSummary");
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error loading payment summary" });
+    }
+});
+
+app.post("/place-order", async (req, res) => {
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        const { name, phone, email, items, deals, paymentMethod, discountName, discountPercent } = req.body;
+
+        const foodItems = Array.isArray(items) ? items : [];
+        const dealItems = Array.isArray(deals) ? deals : [];
+
+        if (!name || !phone || (foodItems.length === 0 && dealItems.length === 0) || !paymentMethod) {
+            return res.status(400).json({ message: "All fields required" });
+        }
+
+        await transaction.begin();
+
+        let request = new sql.Request(transaction);
+
+        let customerResult = await request
+            .input("name", sql.VarChar(100), name)
+            .query(`
+                SELECT customer_id
+                FROM customers
+                WHERE customer_name = @name
+            `);
+
+        let customerId;
+
+        if (customerResult.recordset.length > 0) {
+            customerId = customerResult.recordset[0].customer_id;
+        } else {
+            request = new sql.Request(transaction);
+
+            let newCustomer = await request
+                .input("name", sql.VarChar(100), name)
+                .query(`
+                    INSERT INTO customers (customer_name)
+                    VALUES (@name);
+
+                    SELECT SCOPE_IDENTITY() AS customer_id;
+                `);
+
+            customerId = newCustomer.recordset[0].customer_id;
+
+            request = new sql.Request(transaction);
+
+            await request
+                .input("customer_id", sql.Int, customerId)
+                .input("phone", sql.VarChar(20), phone)
+                .input("email", sql.VarChar(100), email || name.toLowerCase().replaceAll(" ", "") + "@gmail.com")
+                .query(`
+                    INSERT INTO customer_contacts (customer_id, phone, email)
+                    VALUES (@customer_id, @phone, @email)
+                `);
+        }
+
+        request = new sql.Request(transaction);
+
+        let orderResult = await request
+            .input("customer_id", sql.Int, customerId)
+            .query(`
+                INSERT INTO orders (customer_id, status_id)
+                VALUES (@customer_id, 1);
+
+                SELECT SCOPE_IDENTITY() AS order_id;
+            `);
+
+        const orderId = orderResult.recordset[0].order_id;
+        let subTotal = 0;
+
+        for (const item of foodItems) {
+            request = new sql.Request(transaction);
+
+            const foodResult = await request
+                .input("food_id", sql.Int, item.food_id)
+                .query(`
+                    SELECT food_id, price
+                    FROM food_items
+                    WHERE food_id = @food_id
+                    AND availability_status = 'Available'
+                `);
+
+            if (foodResult.recordset.length === 0) {
+                await transaction.rollback();
+                return res.status(404).json({ message: "Food item not available" });
+            }
+
+            const foodId = foodResult.recordset[0].food_id;
+            const price = foodResult.recordset[0].price;
+            const qty = parseInt(item.quantity);
+            const total = price * qty;
+
+            subTotal += total;
+
+            request = new sql.Request(transaction);
+
+            await request
+                .input("order_id", sql.Int, orderId)
+                .input("food_id", sql.Int, foodId)
+                .input("quantity", sql.Int, qty)
+                .input("total_price", sql.Int, total)
+                .query(`
+                    INSERT INTO order_details (order_id, food_id, quantity, total_price)
+                    VALUES (@order_id, @food_id, @quantity, @total_price)
+                `);
+        }
+
+        for (const deal of dealItems) {
+            request = new sql.Request(transaction);
+
+            const dealResult = await request
+                .input("deal_id", sql.Int, deal.deal_id)
+                .query(`
+                    SELECT deal_id, deal_price
+                    FROM deals
+                    WHERE deal_id = @deal_id
+                    AND availability_status = 'Available'
+                `);
+
+            if (dealResult.recordset.length === 0) {
+                await transaction.rollback();
+                return res.status(404).json({ message: "Deal not available" });
+            }
+
+            const dealId = dealResult.recordset[0].deal_id;
+            const price = dealResult.recordset[0].deal_price;
+            const qty = parseInt(deal.quantity);
+            const total = price * qty;
+
+            subTotal += total;
+
+            request = new sql.Request(transaction);
+
+            await request
+                .input("order_id", sql.Int, orderId)
+                .input("deal_id", sql.Int, dealId)
+                .input("quantity", sql.Int, qty)
+                .input("total_price", sql.Int, total)
+                .query(`
+                    INSERT INTO order_deals (order_id, deal_id, quantity, total_price)
+                    VALUES (@order_id, @deal_id, @quantity, @total_price)
+                `);
+        }
+
+        const percent = parseInt(discountPercent) || 0;
+        const discountAmount = Math.round((subTotal * percent) / 100);
+        const finalAmount = subTotal - discountAmount;
+
+        request = new sql.Request(transaction);
+
+        await request
+            .input("order_id", sql.Int, orderId)
+            .input("discount_name", sql.VarChar(100), discountName || "No Discount")
+            .input("discount_amount", sql.Int, discountAmount)
+            .input("final_amount", sql.Int, finalAmount)
+            .query(`
+                UPDATE orders
+                SET discount_name = @discount_name,
+                    discount_amount = @discount_amount,
+                    final_amount = @final_amount
+                WHERE order_id = @order_id
+            `);
+
+        request = new sql.Request(transaction);
+
+        await request
+            .input("order_id", sql.Int, orderId)
+            .input("payment_method", sql.VarChar(50), paymentMethod)
+            .query(`
+                INSERT INTO payments (order_id, payment_method, payment_status)
+                VALUES (@order_id, @payment_method, 'Paid')
+            `);
+
+        await transaction.commit();
+
+        res.json({
+            message: "Order placed successfully",
+            orderId,
+            subTotal,
+            discountAmount,
+            total: finalAmount
+        });
+
+    } catch (err) {
+        try {
+            await transaction.rollback();
+        } catch (rollbackErr) {}
+
+        console.error("❌ Order Error:");
+        console.error(err);
+        res.status(500).json({ message: "Error placing order" });
+    }
+});
+
+app.get("/orders", async (req, res) => {
+    try {
+        const result = await pool.request().query(`
+            SELECT
+                orders.order_id,
+                customers.customer_name AS name,
+                customer_contacts.phone,
+                food_items.food_name AS item_name,
+                'Food' AS item_type,
+                order_details.quantity,
+                order_details.total_price,
+                payments.payment_method,
+                payments.payment_status,
+                order_status.status_name,
+                orders.discount_name,
+                orders.discount_amount,
+                orders.final_amount,
+                orders.order_date
+            FROM orders
+            JOIN customers ON customers.customer_id = orders.customer_id
+            JOIN customer_contacts ON customer_contacts.customer_id = customers.customer_id
+            JOIN order_details ON order_details.order_id = orders.order_id
+            JOIN food_items ON food_items.food_id = order_details.food_id
+            JOIN payments ON payments.order_id = orders.order_id
+            JOIN order_status ON order_status.status_id = orders.status_id
+
+            UNION ALL
+
+            SELECT
+                orders.order_id,
+                customers.customer_name AS name,
+                customer_contacts.phone,
+                deals.deal_name AS item_name,
+                'Deal' AS item_type,
+                order_deals.quantity,
+                order_deals.total_price,
+                payments.payment_method,
+                payments.payment_status,
+                order_status.status_name,
+                orders.discount_name,
+                orders.discount_amount,
+                orders.final_amount,
+                orders.order_date
+            FROM orders
+            JOIN customers ON customers.customer_id = orders.customer_id
+            JOIN customer_contacts ON customer_contacts.customer_id = customers.customer_id
+            JOIN order_deals ON order_deals.order_id = orders.order_id
+            JOIN deals ON deals.deal_id = order_deals.deal_id
+            JOIN payments ON payments.order_id = orders.order_id
+            JOIN order_status ON order_status.status_id = orders.status_id
+
+            ORDER BY order_id DESC
+        `);
+
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching orders" });
+    }
+});
+
+app.get("/search-orders", async (req, res) => {
+    try {
+        const keyword = req.query.keyword || "";
+
+        const result = await pool.request()
+            .input("keyword", sql.VarChar(100), "%" + keyword + "%")
+            .query(`
+                SELECT orders.order_id, customers.customer_name AS name,
+                       customer_contacts.phone, food_items.food_name AS item_name,
+                       'Food' AS item_type, order_details.quantity,
+                       order_details.total_price, payments.payment_method,
+                       payments.payment_status, order_status.status_name,
+                       orders.discount_name, orders.discount_amount,
+                       orders.final_amount, orders.order_date
+                FROM orders
+                JOIN customers ON customers.customer_id = orders.customer_id
+                JOIN customer_contacts ON customer_contacts.customer_id = customers.customer_id
+                JOIN order_details ON order_details.order_id = orders.order_id
+                JOIN food_items ON food_items.food_id = order_details.food_id
+                JOIN payments ON payments.order_id = orders.order_id
+                JOIN order_status ON order_status.status_id = orders.status_id
+                WHERE customers.customer_name LIKE @keyword
+                OR food_items.food_name LIKE @keyword
+                OR payments.payment_method LIKE @keyword
+                OR order_status.status_name LIKE @keyword
+
+                UNION ALL
+
+                SELECT orders.order_id, customers.customer_name AS name,
+                       customer_contacts.phone, deals.deal_name AS item_name,
+                       'Deal' AS item_type, order_deals.quantity,
+                       order_deals.total_price, payments.payment_method,
+                       payments.payment_status, order_status.status_name,
+                       orders.discount_name, orders.discount_amount,
+                       orders.final_amount, orders.order_date
+                FROM orders
+                JOIN customers ON customers.customer_id = orders.customer_id
+                JOIN customer_contacts ON customer_contacts.customer_id = customers.customer_id
+                JOIN order_deals ON order_deals.order_id = orders.order_id
+                JOIN deals ON deals.deal_id = order_deals.deal_id
+                JOIN payments ON payments.order_id = orders.order_id
+                JOIN order_status ON order_status.status_id = orders.status_id
+                WHERE customers.customer_name LIKE @keyword
+                OR deals.deal_name LIKE @keyword
+                OR payments.payment_method LIKE @keyword
+                OR order_status.status_name LIKE @keyword
+
+                ORDER BY order_id DESC
+            `);
+
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error searching orders" });
+    }
+});
+
+app.put("/update-status/:orderId", async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+        const { statusId } = req.body;
+
+        await pool.request()
+            .input("order_id", sql.Int, orderId)
+            .input("status_id", sql.Int, statusId)
+            .query(`
+                UPDATE orders
+                SET status_id = @status_id
+                WHERE order_id = @order_id
+            `);
+
+        res.json({ message: "Order status updated" });
+    } catch (err) {
+        res.status(500).json({ message: "Error updating status" });
+    }
+});
+
+app.post("/feedback", async (req, res) => {
+    try {
+        const { customerName, rating, comments } = req.body;
+
+        if (!customerName || !rating) {
+            return res.status(400).json({ message: "Customer name and rating required" });
+        }
+
+        const customerResult = await pool.request()
+            .input("name", sql.VarChar(100), customerName)
+            .query(`
+                SELECT customer_id
+                FROM customers
+                WHERE customer_name = @name
+            `);
+
+        if (customerResult.recordset.length === 0) {
+            return res.status(404).json({ message: "Customer not found" });
+        }
+
+        const customerId = customerResult.recordset[0].customer_id;
+
+        await pool.request()
+            .input("customer_id", sql.Int, customerId)
+            .input("rating", sql.Int, rating)
+            .input("comments", sql.VarChar(255), comments || "")
+            .query(`
+                INSERT INTO feedback (customer_id, rating, comments)
+                VALUES (@customer_id, @rating, @comments)
+            `);
+
+        res.json({ message: "Feedback submitted successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Error submitting feedback" });
+    }
+});
+
+app.get("/feedback", async (req, res) => {
+    try {
+        const result = await pool.request().query(`
+            SELECT feedback.feedback_id, customers.customer_name,
+                   feedback.rating, feedback.comments, feedback.feedback_date
+            FROM feedback
+            JOIN customers ON customers.customer_id = feedback.customer_id
+            ORDER BY feedback.feedback_id DESC
+        `);
+
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ message: "Error loading feedback" });
+    }
+});
+
+app.listen(3000, async () => {
+    console.log("🚀 Server running on http://localhost:3000");
+    await connectDb();
+});
