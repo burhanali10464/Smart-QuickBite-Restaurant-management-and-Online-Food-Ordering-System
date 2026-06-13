@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickBite</title>
+
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif;scroll-behavior:smooth}
+    body{
+      min-height:100vh;color:#fff;overflow-x:hidden;
+      background:linear-gradient(135deg,#050816,#0b1026,#111827);
+    }
+    body::before{
+      content:"";position:fixed;inset:-50%;z-index:-2;
+      background:
+      radial-gradient(circle at 20% 30%,rgba(255,179,71,.25),transparent 25%),
+      radial-gradient(circle at 80% 70%,rgba(255,77,77,.22),transparent 25%),
+      radial-gradient(circle at 50% 50%,rgba(124,58,237,.18),transparent 30%);
+      animation:bgMove 12s infinite alternate ease-in-out;
+    }
+    body::after{
+      content:"🍔  🍕  🍟  🥤  🍰";position:fixed;top:15%;left:-20%;
+      font-size:70px;opacity:.06;z-index:-1;letter-spacing:40px;
+      animation:floatFood 22s linear infinite;
+    }
+    @keyframes bgMove{from{transform:translate(0,0) scale(1)}to{transform:translate(8%,5%) scale(1.1)}}
+    @keyframes floatFood{from{transform:translateX(0)}to{transform:translateX(140vw)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(25px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+
+    .container{width:92%;max-width:1350px;margin:auto;padding:25px 0}
+    .navbar{
+      position:sticky;top:15px;z-index:20;background:rgba(14,18,34,.85);
+      border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(18px);
+      border-radius:22px;padding:14px 22px;display:flex;justify-content:space-between;
+      align-items:center;box-shadow:0 15px 40px rgba(0,0,0,.35);animation:slideDown .8s ease
+    }
+    .brand{display:flex;align-items:center;gap:12px;font-size:24px;font-weight:bold}
+    .brand-logo{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ff4d4d,#ffb347);display:flex;align-items:center;justify-content:center;box-shadow:0 0 25px rgba(255,179,71,.45)}
+    .brand span,.hero h1 span,.section-title,.card h2{color:#ffb347}
+    .nav-links{display:flex;gap:18px;flex-wrap:wrap}
+    .nav-links a{color:#ddd;text-decoration:none;font-weight:bold;transition:.3s;font-size:14px}
+    .nav-links a:hover{color:#ffb347}
+
+    .hero{text-align:center;padding:55px 0 30px;animation:fadeIn 1s ease}
+    .hero h1{font-size:56px;margin-bottom:12px}
+    .hero p{color:#d0d0d0;font-size:18px;max-width:800px;margin:auto;line-height:1.6}
+    .offer-ticker{margin-top:22px;background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.3);border-radius:20px;padding:12px;overflow:hidden}
+    .offer-text{white-space:nowrap;animation:ticker 18s linear infinite;color:#ffcf8a;font-weight:bold}
+    @keyframes ticker{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
+
+    .section-title{font-size:32px;margin:35px 0 18px}
+    .dashboard{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:25px}
+    .stat-card,.card{
+      background:rgba(14,18,34,.88);border:1px solid rgba(255,255,255,.14);
+      border-radius:26px;backdrop-filter:blur(18px);box-shadow:0 18px 50px rgba(0,0,0,.42);animation:fadeIn 1s ease
+    }
+    .stat-card{padding:22px;transition:.3s}
+    .stat-card:hover,.food-card:hover,.deal-card:hover{transform:translateY(-7px);border-color:#ffb347}
+    .stat-card h3{font-size:15px;color:#ccc;margin-bottom:10px}
+    .stat-card p{font-size:31px;color:#ffb347;font-weight:bold}
+    .main-grid{display:grid;grid-template-columns:1.25fr .9fr;gap:25px;align-items:start}
+    .card{padding:26px}
+    .card h2{margin-bottom:20px;font-size:28px}
+    label{display:block;margin:12px 0 7px;color:#f2f2f2;font-weight:bold}
+    input,select,textarea{
+      width:100%;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.08);color:white;outline:none;font-size:15px;transition:.3s
+    }
+    input:focus,select:focus,textarea:focus{border-color:#ffb347;box-shadow:0 0 0 3px rgba(255,179,71,.12)}
+    input::placeholder,textarea::placeholder{color:#aaa}
+    select option{color:#111}
+    .menu-tools{display:flex;gap:12px;margin-bottom:18px}
+    .menu-grid,.deals-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-height:600px;overflow-y:auto;padding-right:5px}
+    .food-card,.deal-card{
+      overflow:hidden;min-height:270px;border-radius:22px;background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);transition:.35s;box-shadow:0 12px 30px rgba(0,0,0,.28)
+    }
+    .food-card img,.deal-card img{width:100%;height:135px;object-fit:cover;display:block;filter:brightness(.85)}
+    .food-info,.deal-info{padding:15px}
+    .food-info h3,.deal-info h3{color:#ffb347;margin-bottom:6px;font-size:20px}
+    .food-info p,.deal-info p{color:#dcdcdc;font-size:13px;line-height:1.4;margin-bottom:9px}
+    .food-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:bold}
+    .price{color:#fff;background:rgba(255,179,71,.18);padding:5px 10px;border-radius:20px}
+    .category{font-size:12px;color:#ddd}
+    .rating{color:#ffd166;font-size:13px;margin-bottom:8px}
+    .qty-row input{text-align:center}
+    .btn{
+      width:100%;padding:14px;border:none;border-radius:15px;background:linear-gradient(90deg,#ff4d4d,#ffb347);
+      color:white;font-size:16px;font-weight:bold;cursor:pointer;transition:.3s;margin-top:16px
+    }
+    .btn:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(255,120,50,.42)}
+    .message{display:none;padding:12px;border-radius:14px;margin-bottom:14px;font-weight:bold}
+    .success{background:rgba(40,167,69,.22);color:#8df5a6;border:1px solid #28a745}
+    .error{background:rgba(220,53,69,.22);color:#ff9aa5;border:1px solid #dc3545}
+    .bill-box{margin-top:18px;background:rgba(255,179,71,.13);border:1px solid rgba(255,179,71,.35);padding:15px;border-radius:18px}
+    .bill-box h3{color:#ffb347;margin-bottom:8px}
+    .bill-box p{color:#eee;line-height:1.7}
+    .order-list{display:flex;flex-direction:column;gap:14px;max-height:700px;overflow-y:auto;padding-right:5px}
+    .order-item{background:linear-gradient(135deg,rgba(255,77,77,.14),rgba(255,179,71,.10));border-left:5px solid #ffb347;padding:15px;border-radius:18px;animation:fadeIn .5s ease}
+    .order-item h4{color:#ffb347;margin-bottom:7px;font-size:18px}
+    .order-item p{margin:5px 0;color:#eee;font-size:14px}
+    .badge{display:inline-block;background:#ffb347;color:#111;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:bold;margin:5px 4px 0 0}
+    .badge.green{background:#28a745;color:white}.badge.red{background:#dc3545;color:white}.badge.blue{background:#2575fc;color:white}
+    .reports-grid,.feedback-grid{display:grid;gap:18px;margin-top:25px}
+    .reports-grid{grid-template-columns:repeat(3,1fr)}
+    .feedback-grid{grid-template-columns:1fr 1fr}
+    .report-list{display:flex;flex-direction:column;gap:10px}
+    .report-item{display:flex;justify-content:space-between;gap:10px;background:rgba(255,255,255,.07);padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.10);color:#eee}
+    .footer{text-align:center;color:#aaa;padding:30px 0 10px}
+    .floating-cart{position:fixed;right:20px;bottom:20px;width:290px;background:rgba(14,18,34,.94);border:1px solid rgba(255,179,71,.3);border-radius:22px;padding:18px;z-index:30;box-shadow:0 20px 50px rgba(0,0,0,.45);animation:pulse 3s infinite}
+    .floating-cart h3{color:#ffb347;margin-bottom:8px}
+    .floating-cart p{font-size:13px;color:#eee;line-height:1.6}
+    .receipt-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;align-items:center;justify-content:center;padding:20px}
+    .receipt-box{background:#fff;color:#111;width:450px;max-width:100%;padding:24px;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+    .receipt-box h2{text-align:center;color:#111;margin-bottom:14px}.receipt-box p{margin:7px 0}
+    .receipt-box table{width:100%;border-collapse:collapse;margin:14px 0}
+    .receipt-box th,.receipt-box td{border:1px solid #ddd;padding:8px;font-size:13px;text-align:left}
+    .receipt-actions{display:flex;gap:10px;margin-top:14px}
+    .receipt-actions button{width:100%;padding:12px;border:none;border-radius:12px;font-weight:bold;cursor:pointer;color:white}
+    .print-btn{background:#ff7a18}.close-btn{background:#333}
+    @media(max-width:1050px){.dashboard,.reports-grid{grid-template-columns:repeat(2,1fr)}.main-grid,.feedback-grid{grid-template-columns:1fr}.floating-cart{position:static;width:100%;margin-top:20px}}
+    @media(max-width:700px){.navbar{flex-direction:column;gap:12px}.nav-links{justify-content:center}.hero h1{font-size:38px}.dashboard,.reports-grid,.menu-grid,.deals-grid{grid-template-columns:1fr}.menu-tools{flex-direction:column}}
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <nav class="navbar">
+      <div class="brand"><div class="brand-logo">🍔</div>Quick<span>Bite</span></div>
+      <div class="nav-links">
+        <a href="#dashboard">Dashboard</a>
+        <a href="#order">Order</a>
+        <a href="#deals">Deals</a>
+        <a href="#orders">Orders</a>
+        <a href="#reports">Reports</a>
+        <a href="#feedback">Feedback</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <h1>Smart <span>Restaurant</span> Management</h1>
+      <p>Professional online food ordering system with combo deals, bank discounts, animated interface, receipts, reports, feedback and SQL Server database integration.</p>
+      <div class="offer-ticker">
+        <div class="offer-text">🔥 Student Discount 10% OFF &nbsp;&nbsp; | &nbsp;&nbsp; 🎊 Eid Special 20% OFF &nbsp;&nbsp; | &nbsp;&nbsp; 🏦 HBL Card 20% OFF &nbsp;&nbsp; | &nbsp;&nbsp; 🏦 Meezan Bank 15% OFF &nbsp;&nbsp; | &nbsp;&nbsp; 🍕 Pizza Combo Deals Available</div>
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <h2 class="section-title">Dashboard</h2>
+      <div class="dashboard">
+        <div class="stat-card"><h3>Total Customers</h3><p id="totalCustomers">0</p></div>
+        <div class="stat-card"><h3>Total Orders</h3><p id="totalOrders">0</p></div>
+        <div class="stat-card"><h3>Total Revenue</h3><p id="totalRevenue">0</p></div>
+        <div class="stat-card"><h3>Pending Orders</h3><p id="pendingOrders">0</p></div>
+      </div>
+    </section>
+
+    <div class="main-grid" id="order">
+      <div class="card">
+        <h2>Place New Order</h2>
+        <div id="messageBox" class="message"></div>
+
+        <label>Customer Name</label>
+        <input id="name" type="text" placeholder="Enter customer name" />
+
+        <label>Phone Number</label>
+        <input id="phone" type="text" placeholder="Enter phone number" />
+
+        <label>Email Address</label>
+        <input id="email" type="email" placeholder="Enter email address" />
+
+        <label>Payment Method</label>
+        <select id="paymentMethod" onchange="renderDiscounts(); updateBill();">
+          <option value="Cash">Cash</option>
+          <option value="Card">Card</option>
+          <option value="Easypaisa">Easypaisa</option>
+          <option value="JazzCash">JazzCash</option>
+        </select>
+
+        <label>Discount Offer</label>
+        <select id="discountSelect" onchange="updateBill()">
+          <option value="0" data-name="No Discount">No Discount</option>
+        </select>
+
+        <h2 style="margin-top:22px;">Menu Items</h2>
+        <div class="menu-tools">
+          <input id="menuSearch" type="text" placeholder="Search food..." oninput="renderMenu()" />
+          <select id="categoryFilter" onchange="renderMenu()"><option value="All">All Categories</option></select>
+        </div>
+        <div id="menuGrid" class="menu-grid"></div>
+
+        <section id="deals">
+          <h2 style="margin-top:25px;">Combo Deals</h2>
+          <div id="dealsGrid" class="deals-grid"></div>
+        </section>
+
+        <div class="bill-box">
+          <h3 id="billText">Total Bill: Rs 0</h3>
+          <p id="selectedText">No item selected yet.</p>
+        </div>
+
+        <button class="btn" onclick="placeOrder()">Place Order</button>
+      </div>
+
+      <div class="card" id="orders">
+        <h2>Recent Orders</h2>
+        <input id="orderSearch" type="text" placeholder="Search orders by customer, item, payment or status..." oninput="searchOrders()" />
+        <div id="ordersList" class="order-list" style="margin-top:15px;"></div>
+      </div>
+    </div>
+
+    <section id="reports">
+      <h2 class="section-title">Reports & Analytics</h2>
+      <div class="reports-grid">
+        <div class="card"><h2>Top Selling Foods</h2><div id="topFoods" class="report-list"></div></div>
+        <div class="card"><h2>Payment Summary</h2><div id="paymentSummary" class="report-list"></div></div>
+        <div class="card">
+          <h2>Order Status</h2>
+          <label>Order ID</label><input id="statusOrderId" type="number" placeholder="Enter order id" />
+          <label>New Status</label>
+          <select id="statusId">
+            <option value="1">Pending</option><option value="2">Preparing</option><option value="3">Delivered</option><option value="4">Cancelled</option>
+          </select>
+          <button class="btn" onclick="updateStatus()">Update Status</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="feedback">
+      <h2 class="section-title">Customer Feedback</h2>
+      <div class="feedback-grid">
+        <div class="card">
+          <h2>Submit Feedback</h2>
+          <label>Customer Name</label><input id="feedbackName" type="text" placeholder="Enter customer name" />
+          <label>Rating</label>
+          <select id="rating"><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select>
+          <label>Comments</label><textarea id="comments" rows="5" placeholder="Write feedback..."></textarea>
+          <button class="btn" onclick="submitFeedback()">Submit Feedback</button>
+        </div>
+        <div class="card"><h2>Feedback Records</h2><div id="feedbackList" class="order-list"></div></div>
+      </div>
+    </section>
+
+    <div class="footer">© 2026 QuickBite Restaurant Management System</div>
+  </div>
+
+  <div class="floating-cart">
+    <h3>🛒 Live Cart</h3>
+    <p id="cartText">No item selected.</p>
+  </div>
+
+  <div id="receiptModal" class="receipt-modal">
+    <div class="receipt-box">
+      <div id="receiptContent"></div>
+      <div class="receipt-actions">
+        <button class="print-btn" onclick="printReceipt()">Print Receipt</button>
+        <button class="close-btn" onclick="closeReceipt()">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+let menuItems = [];
+let dealItems = [];
+let discountItems = [];
+
+function showMessage(text,type){
+  const box=document.getElementById("messageBox");
+  box.style.display="block";box.className="message "+type;box.textContent=text;
+  setTimeout(()=>{box.style.display="none"},3500);
+}
+
+async function loadDashboard(){
+  try{
+    const res=await fetch("/dashboard");
+    const data=await res.json();
+    document.getElementById("totalCustomers").textContent=data.TotalCustomers||0;
+    document.getElementById("totalOrders").textContent=data.TotalOrders||0;
+    document.getElementById("totalRevenue").textContent="Rs "+(data.TotalRevenue||0);
+    document.getElementById("pendingOrders").textContent=data.PendingOrders||0;
+  }catch(e){}
+}
+
+async function loadMenu(){
+  try{
+    const res=await fetch("/menu");
+    menuItems=await res.json();
+    const categories=["All",...new Set(menuItems.map(i=>i.category_name))];
+    const filter=document.getElementById("categoryFilter");
+    filter.innerHTML="";
+    categories.forEach(cat=>filter.innerHTML+=`<option value="${cat}">${cat}</option>`);
+    renderMenu();
+  }catch(e){document.getElementById("menuGrid").innerHTML="<p>Could not load menu.</p>"}
+}
+
+async function loadDeals(){
+  try{
+    const res=await fetch("/deals");
+    dealItems=await res.json();
+    renderDeals();
+  }catch(e){document.getElementById("dealsGrid").innerHTML="<p>Could not load deals.</p>"}
+}
+
+async function loadDiscounts(){
+  try{
+    const res=await fetch("/discounts");
+    discountItems=await res.json();
+    renderDiscounts();
+  }catch(e){}
+}
+
+function renderDiscounts(){
+  const payment=document.getElementById("paymentMethod").value;
+  const select=document.getElementById("discountSelect");
+  select.innerHTML="";
+  discountItems.forEach(d=>{
+    if(d.payment_method==="Any" || d.payment_method===payment){
+      select.innerHTML+=`<option value="${d.discount_percent}" data-name="${d.discount_name}">${d.discount_name} - ${d.discount_percent}% OFF</option>`;
+    }
+  });
+}
+
+function renderMenu(){
+  const grid=document.getElementById("menuGrid");
+  const search=document.getElementById("menuSearch").value.toLowerCase();
+  const category=document.getElementById("categoryFilter").value;
+  let filtered=menuItems.filter(item=>{
+    return item.food_name.toLowerCase().includes(search) && (category==="All" || item.category_name===category);
+  });
+  let output="";
+  filtered.forEach(item=>{
+    const img=item.food_name==="Biryani" ? "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80" : item.image_url;
+    output+=`
+      <div class="food-card">
+        <img src="${img}" alt="${item.food_name}">
+        <div class="food-info">
+          <div class="food-meta"><span class="category">${item.category_name}</span><span class="price">Rs ${item.price}</span></div>
+          <h3>${item.food_name}</h3>
+          <div class="rating">⭐ ${item.rating || 4.5}</div>
+          <p>${item.description || "Fresh and delicious food item."}</p>
+          <div class="qty-row">
+            <input type="number" min="0" value="0" data-id="${item.food_id}" data-name="${item.food_name}" data-price="${item.price}" oninput="updateBill()">
+          </div>
+        </div>
+      </div>`;
+  });
+  grid.innerHTML=output||"<p>No food item found.</p>";
+  updateBill();
+}
+
+function renderDeals(){
+  const grid=document.getElementById("dealsGrid");
+  let output="";
+  dealItems.forEach(deal=>{
+    output+=`
+      <div class="deal-card">
+        <img src="${deal.image_url}" alt="${deal.deal_name}">
+        <div class="deal-info">
+          <div class="food-meta"><span class="category">Combo Deal</span><span class="price">Rs ${deal.deal_price}</span></div>
+          <h3>${deal.deal_name}</h3>
+          <p>${deal.deal_description}</p>
+          <div class="qty-row">
+            <input type="number" min="0" value="0" data-id="${deal.deal_id}" data-name="${deal.deal_name}" data-price="${deal.deal_price}" oninput="updateBill()">
+          </div>
+        </div>
+      </div>`;
+  });
+  grid.innerHTML=output||"<p>No deals found.</p>";
+}
+
+function getSelectedFoodItems(){
+  const inputs=document.querySelectorAll(".food-card input");
+  let items=[];
+  inputs.forEach(input=>{
+    const quantity=parseInt(input.value);
+    if(quantity>0){
+      items.push({food_id:parseInt(input.dataset.id),food_name:input.dataset.name,price:parseInt(input.dataset.price),quantity});
+    }
+  });
+  return items;
+}
+
+function getSelectedDeals(){
+  const inputs=document.querySelectorAll(".deal-card input");
+  let deals=[];
+  inputs.forEach(input=>{
+    const quantity=parseInt(input.value);
+    if(quantity>0){
+      deals.push({deal_id:parseInt(input.dataset.id),deal_name:input.dataset.name,price:parseInt(input.dataset.price),quantity});
+    }
+  });
+  return deals;
+}
+
+function getDiscount(){
+  const select=document.getElementById("discountSelect");
+  const percent=parseInt(select.value)||0;
+  const name=select.options[select.selectedIndex]?.dataset.name || "No Discount";
+  return {name,percent};
+}
+
+function updateBill(){
+  const foods=getSelectedFoodItems();
+  const deals=getSelectedDeals();
+  const discount=getDiscount();
+  let subTotal=0;
+  let selected="";
+
+  foods.forEach(item=>{
+    const total=item.price*item.quantity;
+    subTotal+=total;
+    selected+=`${item.food_name} x ${item.quantity} = Rs ${total}<br>`;
+  });
+
+  deals.forEach(deal=>{
+    const total=deal.price*deal.quantity;
+    subTotal+=total;
+    selected+=`${deal.deal_name} x ${deal.quantity} = Rs ${total}<br>`;
+  });
+
+  const discountAmount=Math.round((subTotal*discount.percent)/100);
+  const finalTotal=subTotal-discountAmount;
+
+  document.getElementById("billText").textContent="Total Bill: Rs "+finalTotal;
+  document.getElementById("selectedText").innerHTML=
+    (selected||"No item selected yet.")+
+    `<br><b>Subtotal:</b> Rs ${subTotal}<br><b>Discount:</b> ${discount.name} (-Rs ${discountAmount})<br><b>Final Total:</b> Rs ${finalTotal}`;
+
+  document.getElementById("cartText").innerHTML=
+    (selected||"No item selected.")+
+    `<br><b>Final Total:</b> Rs ${finalTotal}`;
+}
+
+async function placeOrder(){
+  const name=document.getElementById("name").value.trim();
+  const phone=document.getElementById("phone").value.trim();
+  const email=document.getElementById("email").value.trim();
+  const paymentMethod=document.getElementById("paymentMethod").value;
+  const items=getSelectedFoodItems();
+  const deals=getSelectedDeals();
+  const discount=getDiscount();
+
+  if(!name||!phone){showMessage("Please enter customer name and phone number.","error");return}
+  if(items.length===0&&deals.length===0){showMessage("Please select at least one food item or deal.","error");return}
+
+  try{
+    const res=await fetch("/place-order",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,phone,email,items,deals,paymentMethod,discountName:discount.name,discountPercent:discount.percent})
+    });
+
+    const data=await res.json();
+
+    if(res.ok){
+      showMessage(data.message+" | Total: Rs "+data.total,"success");
+      showReceipt(data.orderId,name,phone,paymentMethod,items,deals,data.subTotal,data.discountAmount,data.total,discount.name);
+
+      document.getElementById("name").value="";
+      document.getElementById("phone").value="";
+      document.getElementById("email").value="";
+      document.querySelectorAll(".food-card input,.deal-card input").forEach(input=>input.value=0);
+
+      updateBill();loadOrders();loadDashboard();loadTopFoods();loadPaymentSummary();
+    }else{showMessage(data.message||"Order could not be placed.","error")}
+  }catch(e){showMessage("Server error. Please try again.","error")}
+}
+
+function showReceipt(orderId,name,phone,paymentMethod,items,deals,subTotal,discountAmount,total,discountName){
+  let itemRows="";
+  items.forEach(item=>{
+    itemRows+=`<tr><td>${item.food_name}</td><td>${item.quantity}</td><td>Rs ${item.price*item.quantity}</td></tr>`;
+  });
+  deals.forEach(deal=>{
+    itemRows+=`<tr><td>${deal.deal_name}</td><td>${deal.quantity}</td><td>Rs ${deal.price*deal.quantity}</td></tr>`;
+  });
+
+  document.getElementById("receiptContent").innerHTML=`
+    <h2>QuickBite Receipt</h2>
+    <p><b>Order ID:</b> ${orderId}</p>
+    <p><b>Customer:</b> ${name}</p>
+    <p><b>Phone:</b> ${phone}</p>
+    <table><tr><th>Item</th><th>Qty</th><th>Total</th></tr>${itemRows}</table>
+    <p><b>Subtotal:</b> Rs ${subTotal}</p>
+    <p><b>Discount:</b> ${discountName} - Rs ${discountAmount}</p>
+    <p><b>Total Bill:</b> Rs ${total}</p>
+    <p><b>Payment:</b> ${paymentMethod}</p>
+    <p><b>Date:</b> ${new Date().toLocaleString()}</p>
+  `;
+  document.getElementById("receiptModal").style.display="flex";
+}
+
+function closeReceipt(){document.getElementById("receiptModal").style.display="none"}
+
+function printReceipt(){
+  const receipt=document.getElementById("receiptContent").innerHTML;
+  const printWindow=window.open("","","width=450,height=650");
+  printWindow.document.write(`
+    <html><head><title>QuickBite Receipt</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:20px;color:#111}
+      h2{text-align:center;margin-bottom:15px}
+      table{width:100%;border-collapse:collapse;margin:15px 0}
+      th,td{border:1px solid #ccc;padding:8px;text-align:left}
+    </style></head><body>${receipt}</body></html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
+async function loadOrders(){
+  try{
+    const res=await fetch("/orders");
+    const orders=await res.json();
+    renderOrders(orders);
+  }catch(e){document.getElementById("ordersList").innerHTML="<p>Could not load orders.</p>"}
+}
+
+function renderOrders(orders){
+  let output="";
+  if(!orders.length){output="<p>No orders found yet.</p>"}
+  else{
+    orders.forEach(o=>{
+      let statusClass="blue";
+      if(o.status_name==="Delivered")statusClass="green";
+      if(o.status_name==="Cancelled")statusClass="red";
+      output+=`
+        <div class="order-item">
+          <h4>Order #${o.order_id} - ${o.name}</h4>
+          <p><strong>Phone:</strong> ${o.phone}</p>
+          <p><strong>Item:</strong> ${o.item_name || o.food}</p>
+          <p><strong>Type:</strong> ${o.item_type || "Food"}</p>
+          <p><strong>Quantity:</strong> ${o.quantity}</p>
+          <p><strong>Item Total:</strong> Rs ${o.total_price}</p>
+          <p><strong>Discount:</strong> ${o.discount_name || "No Discount"} - Rs ${o.discount_amount || 0}</p>
+          <p><strong>Final Amount:</strong> Rs ${o.final_amount || o.total_price}</p>
+          <span class="badge">${o.payment_method}</span>
+          <span class="badge ${statusClass}">${o.status_name}</span>
+        </div>`;
+    });
+  }
+  document.getElementById("ordersList").innerHTML=output;
+}
+
+async function searchOrders(){
+  const keyword=document.getElementById("orderSearch").value;
+  try{
+    const res=await fetch("/search-orders?keyword="+encodeURIComponent(keyword));
+    const orders=await res.json();
+    renderOrders(orders);
+  }catch(e){}
+}
+
+async function loadTopFoods(){
+  try{
+    const res=await fetch("/top-foods");
+    const foods=await res.json();
+    let output="";
+    foods.forEach(food=>{
+      output+=`<div class="report-item"><span>${food.food_name}</span><strong>${food.TotalQuantity} sold | Rs ${food.TotalRevenue}</strong></div>`;
+    });
+    document.getElementById("topFoods").innerHTML=output||"<p>No report found.</p>";
+  }catch(e){}
+}
+
+async function loadPaymentSummary(){
+  try{
+    const res=await fetch("/payment-summary");
+    const data=await res.json();
+    let output="";
+    data.forEach(item=>{
+      output+=`<div class="report-item"><span>${item.payment_method}</span><strong>${item.TotalPayments}</strong></div>`;
+    });
+    document.getElementById("paymentSummary").innerHTML=output||"<p>No summary found.</p>";
+  }catch(e){}
+}
+
+async function updateStatus(){
+  const orderId=document.getElementById("statusOrderId").value;
+  const statusId=document.getElementById("statusId").value;
+  if(!orderId){alert("Please enter order id");return}
+  try{
+    const res=await fetch("/update-status/"+orderId,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({statusId})});
+    const data=await res.json();
+    alert(data.message);
+    loadOrders();loadDashboard();
+  }catch(e){alert("Error updating status")}
+}
+
+async function submitFeedback(){
+  const customerName=document.getElementById("feedbackName").value.trim();
+  const rating=document.getElementById("rating").value;
+  const comments=document.getElementById("comments").value.trim();
+  if(!customerName){alert("Enter customer name");return}
+  try{
+    const res=await fetch("/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerName,rating,comments})});
+    const data=await res.json();
+    alert(data.message);
+    document.getElementById("feedbackName").value="";
+    document.getElementById("comments").value="";
+    loadFeedback();
+  }catch(e){alert("Error submitting feedback")}
+}
+
+async function loadFeedback(){
+  try{
+    const res=await fetch("/feedback");
+    const feedback=await res.json();
+    let output="";
+    feedback.forEach(f=>{
+      output+=`<div class="order-item"><h4>${f.customer_name}</h4><p><strong>Rating:</strong> ${"⭐".repeat(f.rating)}</p><p><strong>Comments:</strong> ${f.comments||"No comments"}</p></div>`;
+    });
+    document.getElementById("feedbackList").innerHTML=output||"<p>No feedback found.</p>";
+  }catch(e){}
+}
+
+loadDashboard();
+loadMenu();
+loadDeals();
+loadDiscounts();
+loadOrders();
+loadTopFoods();
+loadPaymentSummary();
+loadFeedback();
+</script>
+</body>
+</html>
