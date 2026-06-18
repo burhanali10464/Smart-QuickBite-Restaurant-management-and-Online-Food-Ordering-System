@@ -1,0 +1,304 @@
+USE master;
+GO
+
+IF DB_ID('food_order_db') IS NOT NULL
+BEGIN
+    ALTER DATABASE food_order_db SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE food_order_db;
+END
+GO
+
+CREATE DATABASE food_order_db;
+GO
+
+USE food_order_db;
+GO
+
+CREATE TABLE customers (
+    customer_id INT IDENTITY(1,1) PRIMARY KEY,
+    customer_name VARCHAR(100) NOT NULL,
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE TABLE customer_contacts (
+    contact_id INT IDENTITY(1,1) PRIMARY KEY,
+    customer_id INT NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+CREATE TABLE food_categories (
+    category_id INT IDENTITY(1,1) PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE food_items (
+    food_id INT IDENTITY(1,1) PRIMARY KEY,
+    category_id INT NOT NULL,
+    food_name VARCHAR(100) NOT NULL,
+    price INT NOT NULL CHECK (price > 0),
+    description VARCHAR(255),
+    image_url VARCHAR(500),
+    rating DECIMAL(2,1) DEFAULT 4.5,
+    availability_status VARCHAR(30) DEFAULT 'Available',
+    FOREIGN KEY (category_id) REFERENCES food_categories(category_id)
+);
+
+CREATE TABLE order_status (
+    status_id INT IDENTITY(1,1) PRIMARY KEY,
+    status_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE orders (
+    order_id INT IDENTITY(1,1) PRIMARY KEY,
+    customer_id INT NOT NULL,
+    status_id INT DEFAULT 1,
+    order_date DATETIME DEFAULT GETDATE(),
+    discount_name VARCHAR(100) DEFAULT 'No Discount',
+    discount_amount INT DEFAULT 0,
+    final_amount INT DEFAULT 0,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (status_id) REFERENCES order_status(status_id)
+);
+
+CREATE TABLE order_details (
+    detail_id INT IDENTITY(1,1) PRIMARY KEY,
+    order_id INT NOT NULL,
+    food_id INT NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    total_price INT NOT NULL CHECK (total_price >= 0),
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (food_id) REFERENCES food_items(food_id)
+);
+
+CREATE TABLE payments (
+    payment_id INT IDENTITY(1,1) PRIMARY KEY,
+    order_id INT NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    payment_status VARCHAR(50) DEFAULT 'Paid',
+    FOREIGN KEY (order_id) REFERENCES orders(order_id)
+);
+
+CREATE TABLE deals (
+    deal_id INT IDENTITY(1,1) PRIMARY KEY,
+    deal_name VARCHAR(100) NOT NULL,
+    deal_description VARCHAR(255),
+    deal_price INT NOT NULL,
+    image_url VARCHAR(500),
+    availability_status VARCHAR(30) DEFAULT 'Available'
+);
+
+CREATE TABLE discounts (
+    discount_id INT IDENTITY(1,1) PRIMARY KEY,
+    discount_name VARCHAR(100) NOT NULL,
+    discount_type VARCHAR(50) NOT NULL,
+    discount_percent INT NOT NULL,
+    payment_method VARCHAR(50),
+    is_active VARCHAR(20) DEFAULT 'Active'
+);
+
+CREATE TABLE order_deals (
+    order_deal_id INT IDENTITY(1,1) PRIMARY KEY,
+    order_id INT NOT NULL,
+    deal_id INT NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    total_price INT NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (deal_id) REFERENCES deals(deal_id)
+);
+
+CREATE TABLE order_log (
+    log_id INT IDENTITY(1,1) PRIMARY KEY,
+    order_id INT NOT NULL,
+    action_name VARCHAR(100),
+    log_date DATETIME DEFAULT GETDATE()
+);
+
+CREATE TABLE feedback (
+    feedback_id INT IDENTITY(1,1) PRIMARY KEY,
+    customer_id INT NOT NULL,
+    rating INT CHECK (rating BETWEEN 1 AND 5),
+    comments VARCHAR(255),
+    feedback_date DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+INSERT INTO food_categories (category_name) VALUES
+('Fast Food'),('Rice'),('Snacks'),('Drinks'),('Dessert');
+
+INSERT INTO order_status (status_name) VALUES
+('Pending'),('Preparing'),('Delivered'),('Cancelled');
+
+INSERT INTO food_items (category_id, food_name, price, description, image_url, availability_status) VALUES
+(1,'Burger',300,'Zinger burger','https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80','Available'),
+(1,'Pizza',800,'Large cheese pizza','https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80','Available'),
+(1,'Shawarma',250,'Chicken shawarma','https://images.unsplash.com/photo-1633321702518-7feccafb94d5?auto=format&fit=crop&w=800&q=80','Available'),
+(1,'Zinger',400,'Crispy zinger','https://images.unsplash.com/photo-1550317138-10000687a72b?auto=format&fit=crop&w=800&q=80','Available'),
+(1,'Sandwich',280,'Club sandwich','https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=800&q=80','Available'),
+(1,'Broast',650,'Chicken broast','https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?auto=format&fit=crop&w=800&q=80','Available'),
+(2,'Biryani',500,'Chicken biryani','https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80','Available'),
+(2,'Pulao',450,'Chicken pulao','https://images.unsplash.com/photo-1596797038530-2c107229654b?auto=format&fit=crop&w=800&q=80','Available'),
+(2,'Fried Rice',550,'Chicken fried rice','https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=800&q=80','Available'),
+(3,'Fries',200,'Crispy fries','https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=800&q=80','Available'),
+(3,'Nuggets',350,'Chicken nuggets','https://images.unsplash.com/photo-1562967916-eb82221dfb92?auto=format&fit=crop&w=800&q=80','Available'),
+(3,'Samosa',120,'Crispy samosa','https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80','Available'),
+(3,'Chicken Roll',220,'Chicken roll','https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=800&q=80','Available'),
+(4,'Cold Drink',120,'Chilled drink','https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=800&q=80','Available'),
+(4,'Juice',180,'Fresh juice','https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=800&q=80','Available'),
+(4,'Coffee',250,'Hot coffee','https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80','Available'),
+(4,'Tea',100,'Hot tea','https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&q=80','Available'),
+(5,'Ice Cream',150,'Vanilla ice cream','https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=800&q=80','Available'),
+(5,'Brownie',300,'Chocolate brownie','https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=800&q=80','Available'),
+(5,'Cake',350,'Chocolate cake','https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=800&q=80','Available');
+
+INSERT INTO deals (deal_name, deal_description, deal_price, image_url, availability_status) VALUES
+('Student Combo','Burger + Fries + Cold Drink',699,'https://images.unsplash.com/photo-1610614819513-58e34989848b?auto=format&fit=crop&w=800&q=80','Available'),
+('Pizza Lover Deal','Large Pizza + Fries + 2 Cold Drinks',1199,'https://images.unsplash.com/photo-1601924582970-9238bcb495d9?auto=format&fit=crop&w=800&q=80','Available'),
+('Family Deal','2 Zinger Burgers + Large Pizza + 4 Drinks',1999,'https://images.unsplash.com/photo-1520201163981-8cc95007dd2a?auto=format&fit=crop&w=800&q=80','Available'),
+('QuickBite Special','Burger + Shawarma + Fries + Drink',999,'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=800&q=80','Available'),
+('Biryani Feast','2 Chicken Biryani + 2 Drinks',999,'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80','Available');
+
+INSERT INTO discounts (discount_name, discount_type, discount_percent, payment_method, is_active) VALUES
+('No Discount','None',0,'Any','Active'),
+('Student Discount','Student',10,'Any','Active'),
+('Eid Special Discount','Festival',20,'Any','Active'),
+('HBL Card Discount','Bank',20,'Card','Active'),
+('Meezan Bank Discount','Bank',15,'Card','Active'),
+('UBL Debit Card Discount','Bank',10,'Card','Active');
+
+DECLARE @i INT = 1;
+
+WHILE @i <= 100
+BEGIN
+    INSERT INTO customers (customer_name)
+    VALUES ('Customer ' + CAST(@i AS VARCHAR));
+
+    INSERT INTO customer_contacts (customer_id, phone, email)
+    VALUES (@i, '03000000' + RIGHT('000' + CAST(@i AS VARCHAR), 3), 'customer' + CAST(@i AS VARCHAR) + '@gmail.com');
+
+    SET @i = @i + 1;
+END;
+
+CREATE TRIGGER trg_OrderInsert
+ON orders
+AFTER INSERT
+AS
+BEGIN
+    INSERT INTO order_log (order_id, action_name)
+    SELECT order_id, 'New order placed'
+    FROM inserted;
+END;
+GO
+
+INSERT INTO orders (customer_id, status_id, discount_name, discount_amount, final_amount) VALUES
+(1,3,'No Discount',0,840),
+(2,3,'Student Discount',80,720),
+(3,2,'Eid Special Discount',100,400),
+(4,1,'No Discount',0,600),
+(5,3,'HBL Card Discount',80,320),
+(6,2,'No Discount',0,1100),
+(7,1,'Student Discount',45,405),
+(8,3,'No Discount',0,650),
+(9,4,'No Discount',0,500),
+(10,3,'No Discount',0,300),
+(11,1,'Eid Special Discount',140,559),
+(12,1,'Student Discount',120,1079),
+(13,2,'No Discount',0,1999),
+(14,3,'HBL Card Discount',200,799),
+(15,1,'Meezan Bank Discount',150,849);
+
+INSERT INTO order_details (order_id, food_id, quantity, total_price) VALUES
+(1,1,2,600),(1,14,2,240),
+(2,2,1,800),
+(3,7,1,500),
+(4,10,3,600),
+(5,4,1,400),
+(6,9,2,1100),
+(7,18,3,450),
+(8,6,1,650),
+(9,3,2,500),
+(10,19,1,300);
+
+INSERT INTO order_deals (order_id, deal_id, quantity, total_price) VALUES
+(11,1,1,699),
+(12,2,1,1199),
+(13,3,1,1999),
+(14,4,1,999),
+(15,5,1,999);
+
+INSERT INTO payments (order_id, payment_method, payment_status) VALUES
+(1,'Cash','Paid'),(2,'Card','Paid'),(3,'Easypaisa','Paid'),(4,'JazzCash','Pending'),(5,'Card','Paid'),
+(6,'Card','Paid'),(7,'Cash','Pending'),(8,'Easypaisa','Paid'),(9,'Card','Cancelled'),(10,'JazzCash','Paid'),
+(11,'Cash','Paid'),(12,'Card','Paid'),(13,'Easypaisa','Paid'),(14,'Card','Paid'),(15,'Card','Paid');
+
+INSERT INTO feedback (customer_id, rating, comments) VALUES
+(1,5,'Excellent service'),(2,4,'Good taste'),(3,5,'Fast delivery'),(4,3,'Average experience'),(5,4,'Nice food');
+
+CREATE PROCEDURE GetDashboardStats
+AS
+BEGIN
+    SELECT
+        (SELECT COUNT(*) FROM customers) AS TotalCustomers,
+        (SELECT COUNT(*) FROM orders) AS TotalOrders,
+        (SELECT ISNULL(SUM(final_amount),0) FROM orders) AS TotalRevenue,
+        (SELECT COUNT(*) FROM orders WHERE status_id = 1) AS PendingOrders;
+END;
+GO
+
+CREATE PROCEDURE GetTopSellingFood
+AS
+BEGIN
+    SELECT TOP 5
+        food_items.food_name,
+        SUM(order_details.quantity) AS TotalQuantity,
+        SUM(order_details.total_price) AS TotalRevenue
+    FROM order_details
+    JOIN food_items ON food_items.food_id = order_details.food_id
+    GROUP BY food_items.food_name
+    ORDER BY TotalQuantity DESC;
+END;
+GO
+
+CREATE PROCEDURE GetPaymentSummary
+AS
+BEGIN
+    SELECT payment_method, COUNT(*) AS TotalPayments
+    FROM payments
+    GROUP BY payment_method;
+END;
+GO
+
+CREATE PROCEDURE GetDeals
+AS
+BEGIN
+    SELECT *
+    FROM deals
+    WHERE availability_status = 'Available'
+    ORDER BY deal_id DESC;
+END;
+GO
+
+CREATE PROCEDURE GetDiscounts
+AS
+BEGIN
+    SELECT *
+    FROM discounts
+    WHERE is_active = 'Active';
+END;
+GO
+
+CREATE INDEX idx_customer_name ON customers(customer_name);
+CREATE INDEX idx_food_name ON food_items(food_name);
+CREATE INDEX idx_order_date ON orders(order_date);
+GO
+
+SELECT * FROM customers;
+SELECT * FROM food_items;
+SELECT * FROM deals;
+SELECT * FROM discounts;
+SELECT * FROM orders;
+SELECT * FROM order_details;
+SELECT * FROM order_deals;
+SELECT * FROM payments;
+SELECT * FROM order_log;
